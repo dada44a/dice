@@ -50,6 +50,50 @@ const AVAILABLE_COURSES = [
   "Cybersecurity & Ethical Hacking",
 ];
 
+function Trophy({ size = 23, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.45 1-1 1H8c-.55 0-1 .45-1 1v1h10v-1c0-.55-.45-1-1-1h-1c-.55 0-1-.45-1-1v-2.34" />
+      <path d="M6 4h12v6c0 3.31-2.69 6-6 6s-6-2.69-6-6V4z" />
+    </svg>
+  );
+}
+
+function Sparkles({ size = 20, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" />
+      <path d="M5 3v4" />
+      <path d="M19 17v4" />
+      <path d="M3 5h4" />
+      <path d="M17 19h4" />
+    </svg>
+  );
+}
+
 function ModernDice({ value, size = 76 }: { value: number; size?: number }) {
   const dots = DOT_PATTERNS[value] || DOT_PATTERNS[1];
   const theme = DICE_THEMES[value] || DICE_THEMES[1];
@@ -105,6 +149,8 @@ export function RollingDice({ onClose }: RollingDiceProps) {
   const [isRolling, setIsRolling] = useState(false);
   const [dicePos, setDicePos] = useState({ x: 0, y: 0, rotation: 0 });
 
+  const currentPosRef = useRef({ x: 0, y: 0, rotation: 0 });
+  const hasInitializedRef = useRef(false);
   const animFrameRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +158,7 @@ export function RollingDice({ onClose }: RollingDiceProps) {
   const isOverComplete = rollsCount === TOTAL_ROLLS;
   const total = rolls.reduce((sum, r) => sum + r, 0);
 
-  // Clean, fast bouncing animation (bouncing off boundaries without squash or distortion)
+  // Clean, fast bouncing animation (stops where it last landed)
   const startBounce = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -123,8 +169,9 @@ export function RollingDice({ onClose }: RollingDiceProps) {
       h: Math.max(container.clientHeight - diceSize, 80),
     };
 
-    let x = bounds.w / 2;
-    let y = bounds.h / 2;
+    // Start from the exact spot where it currently is
+    let x = Math.min(Math.max(currentPosRef.current.x, 0), bounds.w);
+    let y = Math.min(Math.max(currentPosRef.current.y, 0), bounds.h);
 
     const speed = 25;
     const angle = Math.random() * Math.PI * 2;
@@ -136,7 +183,7 @@ export function RollingDice({ onClose }: RollingDiceProps) {
     vx = (vx / mag) * speed;
     vy = (vy / mag) * speed;
 
-    let rotation = 0;
+    let rotation = currentPosRef.current.rotation;
 
     function animate() {
       x += vx;
@@ -174,6 +221,7 @@ export function RollingDice({ onClose }: RollingDiceProps) {
         }
       }
 
+      currentPosRef.current = { x, y, rotation };
       setDicePos({ x, y, rotation });
       animFrameRef.current = requestAnimationFrame(animate);
     }
@@ -186,14 +234,15 @@ export function RollingDice({ onClose }: RollingDiceProps) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = 0;
     }
-    const container = containerRef.current;
-    if (container) {
-      setDicePos({
-        x: (container.clientWidth - 76) / 2,
-        y: (container.clientHeight - 76) / 2,
-        rotation: 0,
-      });
-    }
+    // Stop at the exact spot where it currently is, gently setting rotation upright
+    const finalX = currentPosRef.current.x;
+    const finalY = currentPosRef.current.y;
+    currentPosRef.current = { x: finalX, y: finalY, rotation: 0 };
+    setDicePos({
+      x: finalX,
+      y: finalY,
+      rotation: 0,
+    });
   }, []);
 
   useEffect(() => {
@@ -202,20 +251,42 @@ export function RollingDice({ onClose }: RollingDiceProps) {
     };
   }, []);
 
+  // Center dice on initial mount only
   useEffect(() => {
-    function centerDice() {
+    function initOrClampDice() {
       const container = containerRef.current;
-      if (container && !isRolling) {
-        setDicePos({
-          x: (container.clientWidth - 76) / 2,
-          y: (container.clientHeight - 76) / 2,
+      if (!container) return;
+
+      const diceSize = 76;
+      const bounds = {
+        w: Math.max(container.clientWidth - diceSize, 80),
+        h: Math.max(container.clientHeight - diceSize, 80),
+      };
+
+      if (!hasInitializedRef.current) {
+        hasInitializedRef.current = true;
+        const initPos = {
+          x: bounds.w / 2,
+          y: bounds.h / 2,
           rotation: 0,
-        });
+        };
+        currentPosRef.current = initPos;
+        setDicePos(initPos);
+      } else if (!isRolling) {
+        // Just clamp position on window resize, don't move back to center
+        const clampedPos = {
+          x: Math.min(Math.max(currentPosRef.current.x, 0), bounds.w),
+          y: Math.min(Math.max(currentPosRef.current.y, 0), bounds.h),
+          rotation: 0,
+        };
+        currentPosRef.current = clampedPos;
+        setDicePos(clampedPos);
       }
     }
-    centerDice();
-    window.addEventListener("resize", centerDice);
-    return () => window.removeEventListener("resize", centerDice);
+
+    initOrClampDice();
+    window.addEventListener("resize", initOrClampDice);
+    return () => window.removeEventListener("resize", initOrClampDice);
   }, [isRolling]);
 
   function rollDice() {
@@ -244,7 +315,20 @@ export function RollingDice({ onClose }: RollingDiceProps) {
     setRolls([]);
     setCurrentRoll(null);
     setIsRolling(false);
-    stopBounce();
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+    }
+    const container = containerRef.current;
+    if (container) {
+      const initPos = {
+        x: (container.clientWidth - 76) / 2,
+        y: (container.clientHeight - 76) / 2,
+        rotation: 0,
+      };
+      currentPosRef.current = initPos;
+      setDicePos(initPos);
+    }
     setCurrentView("game");
   }
 
@@ -365,24 +449,53 @@ export function RollingDice({ onClose }: RollingDiceProps) {
         {/* Form Body */}
         <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col justify-between gap-4">
           <div className="flex flex-col gap-4">
-            {/* Auto-filled Score Card */}
-            <div className="bg-[#e8f5ee] border border-[#0d7c4a]/30 rounded-2xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-[#0d7c4a] text-white flex items-center justify-center text-xl shadow-md shadow-[#0d7c4a]/20">
-                  🏆
+            {/* High-Impact Reward Voucher Banner */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#064e3b] via-[#0d7c4a] to-[#047857] text-white p-5 shadow-xl shadow-emerald-900/25 ring-1 ring-white/20">
+              {/* Ambient Glows */}
+              <div className="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-amber-400/25 blur-3xl pointer-events-none" />
+              <div className="absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-emerald-400/20 blur-2xl pointer-events-none" />
+
+              {/* Header inside Voucher */}
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-600 text-emerald-950 shadow-lg shadow-amber-500/30 shrink-0">
+                    <Trophy size={24} />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-black text-white tracking-tight">
+                        Congratulations!
+                      </span>
+                      <span className="rounded-full bg-amber-400/25 border border-amber-300/40 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300 shadow-sm">
+                        ★ 1 Over Match
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-emerald-100/90 mt-0.5">
+                      You've unlocked an exclusive course reward!
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#0d7c4a] block">
-                    Locked Score (1 Over)
-                  </span>
-                  <span className="text-xs text-slate-600 font-medium">
-                    Calculated from all {rollsCount} rolls
-                  </span>
+
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 shrink-0">
+                  <Sparkles size={18} className="text-amber-300 animate-pulse" />
                 </div>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-[#0d7c4a]">{total}</span>
-                <span className="text-xs font-bold text-slate-400">/ 36</span>
+
+              {/* Main Standout Discount Row */}
+              <div className="relative mt-4 pt-3.5 border-t border-white/15 border-dashed flex items-center justify-between">
+                <div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-sm">
+                      {total}%
+                    </span>
+                    <span className="text-xl sm:text-2xl font-black text-amber-300 tracking-wide">
+                      OFF
+                    </span>
+                  </div>
+                  
+                </div>
+
               </div>
             </div>
 
@@ -496,9 +609,8 @@ export function RollingDice({ onClose }: RollingDiceProps) {
 
         <div className="flex items-center gap-2.5">
           <div
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${
-              isOverComplete ? "bg-[#e8f5ee] text-[#0d7c4a]" : "bg-slate-100 text-slate-600"
-            }`}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors ${isOverComplete ? "bg-[#e8f5ee] text-[#0d7c4a]" : "bg-slate-100 text-slate-600"
+              }`}
           >
             {isOverComplete ? (
               <>🎉 Over Complete</>
@@ -536,18 +648,16 @@ export function RollingDice({ onClose }: RollingDiceProps) {
           return (
             <div key={i} className="flex flex-col gap-1.5">
               <div
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  isDone
+                className={`h-1.5 rounded-full transition-all duration-300 ${isDone
                     ? "bg-[#0d7c4a]"
                     : isCurrent
-                    ? "bg-emerald-500 shadow-sm shadow-emerald-400"
-                    : "bg-slate-200"
-                }`}
+                      ? "bg-emerald-500 shadow-sm shadow-emerald-400"
+                      : "bg-slate-200"
+                  }`}
               />
               <span
-                className={`text-[10px] font-bold text-center tracking-tight transition-colors ${
-                  isDone ? "text-[#0d7c4a]" : isCurrent ? "text-slate-900 font-extrabold" : "text-slate-400"
-                }`}
+                className={`text-[10px] font-bold text-center tracking-tight transition-colors ${isDone ? "text-[#0d7c4a]" : isCurrent ? "text-slate-900 font-extrabold" : "text-slate-400"
+                  }`}
               >
                 {isDone ? `+${rolls[i]}` : `Ball ${i + 1}`}
               </span>
@@ -578,13 +688,12 @@ export function RollingDice({ onClose }: RollingDiceProps) {
           return (
             <div
               key={i}
-              className={`rounded-2xl p-2 flex flex-col items-center gap-1.5 transition-all duration-200 ${
-                hasRoll
+              className={`rounded-2xl p-2 flex flex-col items-center gap-1.5 transition-all duration-200 ${hasRoll
                   ? "bg-white border border-slate-200 shadow-sm"
                   : isNext
-                  ? "bg-white border-2 border-[#0d7c4a] shadow-md shadow-[#0d7c4a]/10"
-                  : "bg-slate-50 border border-slate-200/80"
-              }`}
+                    ? "bg-white border-2 border-[#0d7c4a] shadow-md shadow-[#0d7c4a]/10"
+                    : "bg-slate-50 border border-slate-200/80"
+                }`}
             >
               <span className={`text-[10px] font-extrabold uppercase ${hasRoll ? "text-[#0d7c4a]" : "text-slate-400"}`}>
                 #{i + 1}
@@ -605,15 +714,13 @@ export function RollingDice({ onClose }: RollingDiceProps) {
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.3fr] gap-3 sm:gap-4 items-center shrink-0 pt-1">
         {/* Score Card */}
         <div
-          className={`rounded-2xl p-3 sm:px-4 flex items-center justify-between border transition-all duration-300 ${
-            isOverComplete ? "bg-[#e8f5ee] border-[#0d7c4a]" : "bg-slate-50 border-slate-200"
-          }`}
+          className={`rounded-2xl p-3 sm:px-4 flex items-center justify-between border transition-all duration-300 ${isOverComplete ? "bg-[#e8f5ee] border-[#0d7c4a]" : "bg-slate-50 border-slate-200"
+            }`}
         >
           <div className="flex flex-col gap-0.5">
             <span
-              className={`text-[10px] font-extrabold tracking-wider uppercase ${
-                isOverComplete ? "text-[#0d7c4a]" : "text-slate-500"
-              }`}
+              className={`text-[10px] font-extrabold tracking-wider uppercase ${isOverComplete ? "text-[#0d7c4a]" : "text-slate-500"
+                }`}
             >
               {isOverComplete ? "🏆 FINAL SCORE" : "CURRENT SCORE"}
             </span>
@@ -627,9 +734,8 @@ export function RollingDice({ onClose }: RollingDiceProps) {
           </div>
           <div className="flex items-baseline">
             <span
-              className={`text-3xl font-extrabold tracking-tight ${
-                isOverComplete ? "text-[#0d7c4a]" : "text-slate-900"
-              }`}
+              className={`text-3xl font-extrabold tracking-tight ${isOverComplete ? "text-[#0d7c4a]" : "text-slate-900"
+                }`}
             >
               {rollsCount === 0 ? "0" : total}
             </span>
@@ -640,9 +746,8 @@ export function RollingDice({ onClose }: RollingDiceProps) {
         <div className="flex w-full gap-2">
           {!isOverComplete ? (
             <button
-              className={`w-full h-14 rounded-2xl border-none text-white text-base font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-[#0d7c4a]/30 hover:shadow-xl hover:shadow-[#0d7c4a]/40 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer ${
-                isRolling ? "bg-slate-900 cursor-wait opacity-80" : "bg-[#0d7c4a] hover:bg-[#0a6b3f]"
-              }`}
+              className={`w-full h-14 rounded-2xl border-none text-white text-base font-bold flex items-center justify-center gap-2.5 shadow-lg shadow-[#0d7c4a]/30 hover:shadow-xl hover:shadow-[#0d7c4a]/40 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer ${isRolling ? "bg-slate-900 cursor-wait opacity-80" : "bg-[#0d7c4a] hover:bg-[#0a6b3f]"
+                }`}
               onClick={rollDice}
               disabled={isRolling}
             >

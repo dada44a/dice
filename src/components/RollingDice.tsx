@@ -50,6 +50,29 @@ const AVAILABLE_COURSES = [
   "Cybersecurity & Ethical Hacking",
 ];
 
+interface OverTier {
+  min: number;
+  max: number;
+  discount: number;
+  name: string;
+}
+
+const OVER_TIERS: OverTier[] = [
+  { min: 6, max: 8, discount: 5, name: "Good Over" },
+  { min: 9, max: 12, discount: 10, name: "Sharp Over" },
+  { min: 13, max: 18, discount: 15, name: "Power Over" },
+  { min: 19, max: 26, discount: 20, name: "Super Over" },
+  { min: 27, max: 33, discount: 25, name: "Mega Over" },
+  { min: 34, max: 36, discount: 30, name: "Perfect Over" },
+];
+
+function getOverReward(score: number): OverTier {
+  const found = OVER_TIERS.find((t) => score >= t.min && score <= t.max);
+  if (found) return found;
+  if (score < 6) return OVER_TIERS[0];
+  return OVER_TIERS[OVER_TIERS.length - 1];
+}
+
 function Trophy({ size = 23, className = "" }: { size?: number; className?: string }) {
   return (
     <svg
@@ -157,6 +180,7 @@ export function RollingDice({ onClose }: RollingDiceProps) {
   const rollsCount = rolls.length;
   const isOverComplete = rollsCount === TOTAL_ROLLS;
   const total = rolls.reduce((sum, r) => sum + r, 0);
+  const reward = getOverReward(total);
 
   // Clean, fast bouncing animation (stops where it last landed)
   const startBounce = useCallback(() => {
@@ -368,7 +392,7 @@ export function RollingDice({ onClose }: RollingDiceProps) {
         </h3>
 
         <p className="text-sm text-slate-500 max-w-sm mb-6 leading-relaxed">
-          Your score of <strong className="text-slate-900 font-bold text-base">{total}</strong> has been locked in for <strong className="text-[#0d7c4a] font-bold">{selectedCourse}</strong>. Our academic team will be in touch with your customized discount.
+          Your score of <strong className="text-slate-900 font-bold text-base">{total} runs ({reward.name})</strong> has locked in a <strong className="text-[#0d7c4a] font-bold text-base">{reward.discount}% OFF discount</strong> for <strong className="text-slate-900 font-bold">{selectedCourse}</strong>. Our academic team will be in touch with your customized offer.
         </p>
 
         <div className="w-full max-w-sm bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 flex flex-col gap-2 text-left">
@@ -378,7 +402,11 @@ export function RollingDice({ onClose }: RollingDiceProps) {
           </div>
           <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200/80">
             <span className="text-slate-500 font-medium">Final Over Score</span>
-            <span className="font-extrabold text-base text-[#0d7c4a]">{total} / 36</span>
+            <span className="font-extrabold text-base text-[#0d7c4a]">{total} runs • {reward.name}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-200/80">
+            <span className="text-slate-500 font-medium">Unlocked Reward</span>
+            <span className="font-extrabold text-sm text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">{reward.discount}% OFF</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-500 font-medium">Selected Course</span>
@@ -449,53 +477,75 @@ export function RollingDice({ onClose }: RollingDiceProps) {
         {/* Form Body */}
         <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col justify-between gap-4">
           <div className="flex flex-col gap-4">
-            {/* High-Impact Reward Voucher Banner */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#064e3b] via-[#0d7c4a] to-[#047857] text-white p-5 shadow-xl shadow-emerald-900/25 ring-1 ring-white/20">
+            {/* High-Impact Reward Voucher Banner (Centered) */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#064e3b] via-[#0d7c4a] to-[#047857] text-white p-5 shadow-xl shadow-emerald-900/25 ring-1 ring-white/20 text-center">
               {/* Ambient Glows */}
-              <div className="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-amber-400/25 blur-3xl pointer-events-none" />
+              <div className="absolute left-1/2 -top-10 -translate-x-1/2 h-36 w-72 rounded-full bg-amber-400/20 blur-3xl pointer-events-none" />
               <div className="absolute -left-8 -bottom-8 h-32 w-32 rounded-full bg-emerald-400/20 blur-2xl pointer-events-none" />
 
-              {/* Header inside Voucher */}
-              <div className="relative flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-600 text-emerald-950 shadow-lg shadow-amber-500/30 shrink-0">
-                    <Trophy size={24} />
+              {/* Centered Header inside Voucher */}
+              <div className="relative flex flex-col items-center justify-center gap-1.5">
+                <div className="flex items-center justify-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 via-amber-400 to-amber-600 text-emerald-950 shadow-md shadow-amber-500/30 shrink-0">
+                    <Trophy size={20} />
                   </div>
-
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-black text-white tracking-tight">
-                        Congratulations!
-                      </span>
-                      <span className="rounded-full bg-amber-400/25 border border-amber-300/40 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300 shadow-sm">
-                        ★ 1 Over Match
-                      </span>
-                    </div>
-                    <p className="text-xs font-semibold text-emerald-100/90 mt-0.5">
-                      You've unlocked an exclusive course reward!
-                    </p>
-                  </div>
+                  <span className="text-base sm:text-lg font-black text-white tracking-tight">
+                    Congratulations!
+                  </span>
+                  <span className="rounded-full bg-amber-400/25 border border-amber-300/40 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300 shadow-sm flex items-center gap-1">
+                    <Sparkles size={11} className="text-amber-300" />
+                    {reward.name}
+                  </span>
                 </div>
-
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 shrink-0">
-                  <Sparkles size={18} className="text-amber-300 animate-pulse" />
-                </div>
+                <p className="text-xs font-semibold text-emerald-100/90">
+                  You've unlocked an exclusive course reward!
+                </p>
               </div>
 
-              {/* Main Standout Discount Row */}
-              <div className="relative mt-4 pt-3.5 border-t border-white/15 border-dashed flex items-center justify-between">
-                <div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-4xl sm:text-5xl font-black tracking-tight text-white drop-shadow-sm">
-                      {total}%
-                    </span>
-                    <span className="text-xl sm:text-2xl font-black text-amber-300 tracking-wide">
-                      OFF
-                    </span>
-                  </div>
-                  
+              {/* Main Standout Discount Row (Centered) */}
+              <div className="relative mt-4 pt-3.5 border-t border-white/15 border-dashed flex flex-col items-center justify-center">
+                <div className="flex items-baseline justify-center gap-2.5">
+                  <span className="text-5xl sm:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 drop-shadow-[0_2px_14px_rgba(251,191,36,0.45)]">
+                    {reward.discount}%
+                  </span>
+                  <span className="text-base sm:text-lg font-black tracking-wider uppercase px-2.5 py-0.5 rounded-lg bg-amber-400/20 text-amber-200 border border-amber-300/30 shadow-sm">
+                    OFF
+                  </span>
                 </div>
+                <span className="text-[11px] font-semibold text-emerald-200/95 mt-1 block">
+                  Your Over: {total} runs ({reward.name}) • Auto-applies to your selected course
+                </span>
+              </div>
+            </div>
 
+            {/* Reward Tiers Breakdown */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3">
+              <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mb-2 px-0.5">
+                <span>Over Reward Tiers</span>
+                <span className="text-[#0d7c4a] font-bold">Unlocked: {reward.name} ({reward.discount}% OFF)</span>
+              </div>
+              <div className="grid grid-cols-6 gap-1 text-center">
+                {OVER_TIERS.map((tier) => {
+                  const isActive = reward.name === tier.name;
+                  return (
+                    <div
+                      key={tier.name}
+                      className={`py-1.5 px-1 rounded-xl border transition-all ${
+                        isActive
+                          ? "bg-[#e8f5ee] border-[#0d7c4a] text-[#0d7c4a] shadow-sm ring-1 ring-[#0d7c4a]/30"
+                          : "bg-white border-slate-200/70 text-slate-500"
+                      }`}
+                    >
+                      <div className="text-[9px] font-bold text-slate-400">{tier.min}-{tier.max}r</div>
+                      <div className={`text-xs font-black ${isActive ? "text-[#0d7c4a]" : "text-slate-800"}`}>
+                        {tier.discount}%
+                      </div>
+                      <div className="text-[8px] font-semibold truncate leading-tight mt-0.5">
+                        {tier.name.replace(" Over", "")}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -722,13 +772,11 @@ export function RollingDice({ onClose }: RollingDiceProps) {
               className={`text-[10px] font-extrabold tracking-wider uppercase ${isOverComplete ? "text-[#0d7c4a]" : "text-slate-500"
                 }`}
             >
-              {isOverComplete ? "🏆 FINAL SCORE" : "CURRENT SCORE"}
+              {isOverComplete ? `🏆 ${reward.name.toUpperCase()}` : "CURRENT SCORE"}
             </span>
             <span className={`text-xs font-semibold ${isOverComplete ? "text-[#0a6b3f]" : "text-slate-400"}`}>
               {isOverComplete
-                ? total > 20
-                  ? "Incredible score!"
-                  : "Solid performance!"
+                ? `Won ${reward.discount}% OFF scholarship!`
                 : `${TOTAL_ROLLS - rollsCount} rolls remaining`}
             </span>
           </div>
